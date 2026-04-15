@@ -1,0 +1,146 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /users/{userId}
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required, email format)
+//   - displayName: string (optional)
+//   - photoURL: string (optional, url format)
+//   - createdAt: string (required, date-time)
+//   - updatedAt: string (required, date-time)
+//
+// Collection: /users/{userId}/tasks/{taskId}
+// Document ID: {taskId}
+// Fields:
+//   - id: string (required)
+//   - title: string (required)
+//   - description: string (optional)
+//   - dueDate: string (optional)
+//   - priority: string (required, enum: low, medium, high, urgent)
+//   - tags: list (optional, strings)
+//   - projectId: string (optional)
+//   - completed: bool (required)
+//   - subtasks: list (optional)
+//   - createdAt: string (required)
+//   - updatedAt: string (required)
+//   - uid: string (required, matches owner)
+//
+// Collection: /users/{userId}/projects/{projectId}
+// Document ID: {projectId}
+// Fields:
+//   - id: string (required)
+//   - name: string (required)
+//   - color: string (optional)
+//   - icon: string (optional)
+//   - uid: string (required, matches owner)
+//
+// Collection: /users/{userId}/tags/{tagId}
+// Document ID: {tagId}
+// Fields:
+//   - id: string (required)
+//   - name: string (required)
+//   - color: string (optional)
+//   - uid: string (required, matches owner)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'createdAt', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.createdAt is string &&
+             data.updatedAt is string;
+    }
+
+    function isValidTask(data) {
+      return hasRequiredFields(['id', 'title', 'completed', 'priority', 'uid', 'createdAt', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 500 &&
+             data.priority in ['low', 'medium', 'high', 'urgent'] &&
+             data.completed is bool;
+    }
+
+    function isValidProject(data) {
+      return hasRequiredFields(['id', 'name', 'uid']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidTag(data) {
+      return hasRequiredFields(['id', 'name', 'uid']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 50;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTask(request.resource.data);
+        allow update: if isOwner(userId) && isValidTask(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /projects/{projectId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidProject(request.resource.data);
+        allow update: if isOwner(userId) && isValidProject(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /tags/{tagId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTag(request.resource.data);
+        allow update: if isOwner(userId) && isValidTag(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
