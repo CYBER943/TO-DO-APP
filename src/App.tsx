@@ -145,6 +145,19 @@ export default function App() {
   const filteredTasks = useMemo(() => {
     let tasks = state.tasks;
 
+    // View/Project filter
+    if (state.activeProjectId === 'inbox') {
+      tasks = tasks.filter(t => t.projectId === 'inbox');
+    } else if (state.activeProjectId === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      tasks = tasks.filter(t => t.dueDate?.startsWith(today));
+    } else if (state.activeProjectId === 'upcoming') {
+      const today = new Date().toISOString().split('T')[0];
+      tasks = tasks.filter(t => t.dueDate && t.dueDate > today);
+    } else if (state.activeProjectId !== 'all') {
+      tasks = tasks.filter(t => t.projectId === state.activeProjectId);
+    }
+
     // Search filter
     if (state.searchQuery) {
       const query = state.searchQuery.toLowerCase();
@@ -155,8 +168,25 @@ export default function App() {
       );
     }
 
+    // Priority filter
+    if (state.filters.priority.length > 0) {
+      tasks = tasks.filter(t => state.filters.priority.includes(t.priority));
+    }
+
+    // Tags filter
+    if (state.filters.tags.length > 0) {
+      tasks = tasks.filter(t => t.tags.some(tag => state.filters.tags.includes(tag)));
+    }
+
+    // Completion filter
+    if (state.filters.completed === 'completed') {
+      tasks = tasks.filter(t => t.completed);
+    } else if (state.filters.completed === 'active') {
+      tasks = tasks.filter(t => !t.completed);
+    }
+
     return tasks;
-  }, [state.tasks, state.searchQuery]);
+  }, [state.tasks, state.searchQuery, state.activeProjectId, state.filters]);
 
   const handleAddTask = () => {
     setEditingTask(undefined);
@@ -201,6 +231,7 @@ export default function App() {
         updatedAt: new Date().toISOString(),
         attachments: [],
         uid: user.uid,
+        order: state.tasks.length,
       };
       
       try {
@@ -239,6 +270,20 @@ export default function App() {
       toast.error('Task deleted');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/tasks/${id}`);
+    }
+  };
+
+  const handleReorder = async (taskId: string, newSectionId: string, newOrder: number) => {
+    if (!user) return;
+    const taskRef = doc(db, 'users', user.uid, 'tasks', taskId);
+    try {
+      await setDoc(taskRef, { 
+        sectionId: newSectionId, 
+        order: newOrder,
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/tasks/${taskId}`);
     }
   };
 
@@ -307,10 +352,14 @@ export default function App() {
               activeProjectId={state.activeProjectId}
               projects={state.projects}
               sections={state.sections}
+              tags={state.tags}
+              filters={state.filters}
+              onFilterChange={(filters) => setState({ ...state, filters })}
               onToggleComplete={handleToggleComplete}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               onAddTask={handleAddTask}
+              onReorder={handleReorder}
             />
           ) : state.view === 'calendar' ? (
             <CalendarView 

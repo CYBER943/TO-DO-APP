@@ -14,6 +14,8 @@ import { Task, Priority } from '../types';
 import { cn } from '../../lib/utils';
 import { format, isPast, isToday } from 'date-fns';
 import { Badge } from '../../components/ui/badge';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,17 +45,37 @@ const TaskItem: React.FC<TaskItemProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
   const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate)) && !task.completed;
 
   return (
     <motion.div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       className={cn(
-        "group flex items-start gap-4 p-4 rounded-xl border bg-card hover:shadow-md transition-all duration-200",
-        task.completed && "opacity-60"
+        "group flex items-start gap-4 p-4 rounded-xl border bg-card hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing",
+        task.completed && "opacity-60",
+        isDragging && "opacity-50 shadow-2xl border-primary/50"
       )}
     >
       <button 

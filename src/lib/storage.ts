@@ -23,6 +23,11 @@ const defaultState: AppState = {
   view: 'list',
   searchQuery: '',
   theme: 'dark',
+  filters: {
+    priority: [],
+    tags: [],
+    completed: 'all',
+  },
 };
 
 export const loadState = (): AppState => {
@@ -31,7 +36,16 @@ export const loadState = (): AppState => {
     if (serializedState === null) {
       return defaultState;
     }
-    return JSON.parse(serializedState);
+    const loadedState = JSON.parse(serializedState);
+    // Merge with defaultState to ensure new fields (like filters) exist
+    return {
+      ...defaultState,
+      ...loadedState,
+      filters: {
+        ...defaultState.filters,
+        ...(loadedState.filters || {}),
+      }
+    };
   } catch (err) {
     return defaultState;
   }

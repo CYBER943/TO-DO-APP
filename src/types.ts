@@ -21,6 +21,7 @@ export interface Task {
   updatedAt: string;
   attachments: string[]; // URLs or links
   uid: string;
+  order: number;
 }
 
 export interface Project {
@@ -47,6 +48,12 @@ export interface Tag {
 
 export type ViewType = 'list' | 'board' | 'calendar' | 'analytics';
 
+export interface TaskFilters {
+  priority: Priority[];
+  tags: string[];
+  completed: 'all' | 'completed' | 'active';
+}
+
 export interface AppState {
   tasks: Task[];
   projects: Project[];
@@ -56,4 +63,5 @@ export interface AppState {
   view: ViewType;
   searchQuery: string;
   theme: 'light' | 'dark';
+  filters: TaskFilters;
 }
