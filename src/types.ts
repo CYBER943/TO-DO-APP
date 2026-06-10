@@ -22,6 +22,7 @@ export interface Task {
   attachments: string[]; // URLs or links
   uid: string;
   order: number;
+  isFocus?: boolean;
 }
 
 export interface Project {
@@ -64,4 +65,5 @@ export interface AppState {
   searchQuery: string;
   theme: 'light' | 'dark';
   filters: TaskFilters;
+  dailyFocusGoal?: number;
 }

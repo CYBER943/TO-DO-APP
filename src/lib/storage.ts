@@ -28,6 +28,7 @@ const defaultState: AppState = {
     tags: [],
     completed: 'all',
   },
+  dailyFocusGoal: 3,
 };
 
 export const loadState = (): AppState => {

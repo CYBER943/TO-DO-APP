@@ -10,7 +10,8 @@
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "dailyFocusGoal": { "type": "integer" }
       },
       "required": ["uid", "email"]
     },
@@ -30,7 +31,8 @@
         "subtasks": { "type": "array" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" },
-        "uid": { "type": "string" }
+        "uid": { "type": "string" },
+        "isFocus": { "type": "boolean" }
       },
       "required": ["id", "title", "uid"]
     },
@@ -58,6 +60,18 @@
         "uid": { "type": "string" }
       },
       "required": ["id", "name", "uid"]
+    },
+    "Section": {
+      "title": "Section",
+      "description": "A column or section within a project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "projectId": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "name", "projectId", "order"]
     }
   },
   "firestore": {
@@ -76,6 +90,10 @@
     "/users/{userId}/tags/{tagId}": {
       "schema": "Tag",
       "description": "User tags"
+    },
+    "/users/{userId}/sections/{sectionId}": {
+      "schema": "Section",
+      "description": "User project sections"
     }
   }
 }

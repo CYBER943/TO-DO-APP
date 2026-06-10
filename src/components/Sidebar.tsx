@@ -11,9 +11,11 @@ import {
   User,
   Briefcase,
   Folder,
-  LogOut
+  LogOut,
+  Target,
+  Minus
 } from 'lucide-react';
-import { Project, Tag, ViewType } from '../types';
+import { Project, Tag, ViewType, Task } from '../types';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { ScrollArea } from '../../components/ui/scroll-area';
@@ -29,6 +31,9 @@ interface SidebarProps {
   onViewSelect: (view: ViewType) => void;
   onAddProject: () => void;
   user: FirebaseUser | null;
+  tasks?: Task[];
+  dailyFocusGoal?: number;
+  onUpdateDailyFocusGoal?: (goal: number) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -40,6 +45,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onViewSelect,
   onAddProject,
   user,
+  tasks = [],
+  dailyFocusGoal = 3,
+  onUpdateDailyFocusGoal,
 }) => {
   const navItems = [
     { id: 'inbox', label: 'Inbox', icon: Inbox, view: 'list' as ViewType },
@@ -60,6 +68,29 @@ const Sidebar: React.FC<SidebarProps> = ({
       default: return Folder;
     }
   };
+
+  const todayStr = React.useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  const { completedCount, totalFocusCount } = React.useMemo(() => {
+    const todayFocusTasks = tasks.filter(t => 
+      t.isFocus && 
+      (t.dueDate === todayStr || t.updatedAt?.startsWith(todayStr))
+    );
+    return {
+      completedCount: todayFocusTasks.filter(t => t.completed).length,
+      totalFocusCount: todayFocusTasks.length
+    };
+  }, [tasks, todayStr]);
+
+  const radius = 22;
+  const strokeWidth = 3.5;
+  const normalizedRadius = radius - strokeWidth / 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const percent = dailyFocusGoal > 0 ? Math.min(Math.round((completedCount / dailyFocusGoal) * 100), 100) : 0;
+  const strokeDashoffset = circumference - (percent / 100) * circumference;
 
   return (
     <div className="w-64 h-full bg-sidebar border-r flex flex-col">
@@ -105,6 +136,87 @@ const Sidebar: React.FC<SidebarProps> = ({
               {item.label}
             </Button>
           ))}
+        </div>
+
+        <Separator className="my-4" />
+
+        {/* Daily Focus Goal Progress Ring Card */}
+        <div className="mx-3 bg-muted/30 border rounded-xl p-3.5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative w-11 h-11 flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  className="text-muted-foreground/10"
+                  strokeWidth={strokeWidth}
+                  stroke="currentColor"
+                  fill="transparent"
+                  r={normalizedRadius}
+                  cx={radius}
+                  cy={radius}
+                />
+                <circle
+                  className="text-primary transition-all duration-300 ease-in-out"
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={circumference + ' ' + circumference}
+                  style={{ strokeDashoffset }}
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="transparent"
+                  r={normalizedRadius}
+                  cx={radius}
+                  cy={radius}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-foreground">
+                  {percent}%
+                </span>
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                <Target className="w-3.5 h-3.5 text-primary animate-pulse" />
+                <span>Focus Goal</span>
+              </div>
+              <p className="text-sm font-bold text-foreground mt-0.5">
+                {completedCount} of {dailyFocusGoal} done
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1.5 border-t border-muted/50 text-xs">
+            <span className="text-muted-foreground">Daily Target:</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-md hover:bg-muted"
+                onClick={() => {
+                  if (onUpdateDailyFocusGoal && dailyFocusGoal > 1) {
+                    onUpdateDailyFocusGoal(dailyFocusGoal - 1);
+                  }
+                }}
+                disabled={dailyFocusGoal <= 1}
+              >
+                <Minus className="w-2.5 h-2.5" />
+              </Button>
+              <span className="font-bold w-4 text-center">{dailyFocusGoal}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-md hover:bg-muted"
+                onClick={() => {
+                  if (onUpdateDailyFocusGoal && dailyFocusGoal < 10) {
+                    onUpdateDailyFocusGoal(dailyFocusGoal + 1);
+                  }
+                }}
+                disabled={dailyFocusGoal >= 10}
+              >
+                <Plus className="w-2.5 h-2.5" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         <Separator className="my-4" />

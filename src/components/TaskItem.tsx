@@ -8,7 +8,8 @@ import {
   Edit2, 
   Trash2,
   Paperclip,
-  MessageSquare
+  MessageSquare,
+  Target
 } from 'lucide-react';
 import { Task, Priority } from '../types';
 import { cn } from '../../lib/utils';
@@ -30,6 +31,7 @@ interface TaskItemProps {
   onToggleComplete: (id: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
+  onToggleFocus?: (id: string) => void;
 }
 
 const priorityColors: Record<Priority, string> = {
@@ -44,6 +46,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
   onToggleComplete,
   onEdit,
   onDelete,
+  onToggleFocus,
 }) => {
   const {
     attributes,
@@ -105,21 +108,42 @@ const TaskItem: React.FC<TaskItemProps> = ({
             )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(task)}>
-                <Edit2 className="w-4 h-4 mr-2" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDelete(task.id)} className="text-destructive">
-                <Trash2 className="w-4 h-4 mr-2" /> Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-8 w-8 hover:bg-muted transition-all duration-200",
+                task.isFocus 
+                  ? "text-primary opacity-100" 
+                  : "text-muted-foreground/40 hover:text-primary opacity-0 group-hover:opacity-100"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (onToggleFocus) onToggleFocus(task.id);
+              }}
+              title={task.isFocus ? "Remove from Daily Focus" : "Mark as Daily Focus"}
+            >
+              <Target className={cn("w-4.5 h-4.5 transition-transform duration-300 hover:scale-110", task.isFocus && "animate-pulse fill-primary/10")} />
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(task)}>
+                  <Edit2 className="w-4 h-4 mr-2" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete(task.id)} className="text-destructive">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

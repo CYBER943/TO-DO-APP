@@ -40,6 +40,7 @@ export default function App() {
   const [state, setState] = useState<AppState>(loadState());
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+  const [initialSectionId, setInitialSectionId] = useState<string | undefined>(undefined);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
@@ -121,10 +122,28 @@ export default function App() {
       }
     }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/tags`));
 
+    const sectionsRef = collection(db, 'users', user.uid, 'sections');
+    const unsubSections = onSnapshot(sectionsRef, (snapshot) => {
+      const sections = snapshot.docs.map(doc => doc.data() as Section);
+      setState(prev => ({ ...prev, sections }));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/sections`));
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubUser = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        if (userData?.dailyFocusGoal !== undefined) {
+          setState(prev => ({ ...prev, dailyFocusGoal: userData.dailyFocusGoal }));
+        }
+      }
+    }, (error) => handleFirestoreError(error, OperationType.GET, `users/${user.uid}`));
+
     return () => {
       unsubTasks();
       unsubProjects();
       unsubTags();
+      unsubSections();
+      unsubUser();
     };
   }, [user]);
 
@@ -188,8 +207,9 @@ export default function App() {
     return tasks;
   }, [state.tasks, state.searchQuery, state.activeProjectId, state.filters]);
 
-  const handleAddTask = () => {
+  const handleAddTask = (sectionId?: string) => {
     setEditingTask(undefined);
+    setInitialSectionId(sectionId);
     setIsTaskDialogOpen(true);
   };
 
@@ -225,13 +245,14 @@ export default function App() {
         priority: taskData.priority || 'medium',
         tags: taskData.tags || [],
         projectId: taskData.projectId || state.activeProjectId,
+        sectionId: taskData.sectionId || initialSectionId,
         completed: false,
         subtasks: taskData.subtasks || [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         attachments: [],
         uid: user.uid,
-        order: state.tasks.length,
+        order: state.tasks.length > 0 ? (Math.max(...state.tasks.map(t => t.order || 0)) + 1000) : 0,
       };
       
       try {
@@ -287,6 +308,74 @@ export default function App() {
     }
   };
 
+  const handleAddSection = async (name: string) => {
+    if (!user || state.activeProjectId === 'all' || ['inbox', 'today', 'upcoming'].includes(state.activeProjectId)) return;
+    const id = Math.random().toString(36).substr(2, 9);
+    const order = state.sections.filter(s => s.projectId === state.activeProjectId).length;
+    const newSection: Section = {
+      id,
+      name,
+      projectId: state.activeProjectId,
+      order
+    };
+    try {
+      await setDoc(doc(db, 'users', user.uid, 'sections', id), newSection);
+      toast.success('Section added');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/sections/${id}`);
+    }
+  };
+
+  const handleUpdateSection = async (id: string, name: string) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'users', user.uid, 'sections', id), { name }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/sections/${id}`);
+    }
+  };
+
+  const handleDeleteSection = async (id: string) => {
+    if (!user) return;
+    try {
+      const { deleteDoc } = await import('./lib/firebase');
+      await deleteDoc(doc(db, 'users', user.uid, 'sections', id));
+      toast.error('Section deleted');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/sections/${id}`);
+    }
+  };
+
+  const handleToggleFocus = async (id: string) => {
+    if (!user) return;
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    const taskRef = doc(db, 'users', user.uid, 'tasks', id);
+    try {
+      await setDoc(taskRef, { 
+        isFocus: !task.isFocus, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/tasks/${id}`);
+    }
+  };
+
+  const handleUpdateDailyFocusGoal = async (goal: number) => {
+    if (!user) return;
+    const userRef = doc(db, 'users', user.uid);
+    try {
+      await setDoc(userRef, { 
+        dailyFocusGoal: goal,
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+      toast.success(`Daily focus goal updated to ${goal}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
   const handleAiPrioritize = async () => {
     const incompleteTasks = state.tasks.filter(t => !t.completed);
     if (incompleteTasks.length === 0) {
@@ -332,6 +421,9 @@ export default function App() {
         onViewSelect={(view) => setState({ ...state, view })}
         onAddProject={() => toast.info('Add project feature coming soon')}
         user={user}
+        tasks={state.tasks}
+        dailyFocusGoal={state.dailyFocusGoal || 3}
+        onUpdateDailyFocusGoal={handleUpdateDailyFocusGoal}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -358,8 +450,12 @@ export default function App() {
               onToggleComplete={handleToggleComplete}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
-              onAddTask={handleAddTask}
+              onAddTask={(sectionId) => handleAddTask(sectionId)}
               onReorder={handleReorder}
+              onAddSection={handleAddSection}
+              onUpdateSection={handleUpdateSection}
+              onDeleteSection={handleDeleteSection}
+              onToggleFocus={handleToggleFocus}
             />
           ) : state.view === 'calendar' ? (
             <CalendarView 

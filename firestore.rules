@@ -107,6 +107,13 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 50;
     }
 
+    function isValidSection(data) {
+      return hasRequiredFields(['id', 'name', 'projectId', 'order']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.projectId is string &&
+             data.order is number;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -134,6 +141,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidTag(request.resource.data);
         allow update: if isOwner(userId) && isValidTag(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /sections/{sectionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSection(request.resource.data);
+        allow update: if isOwner(userId) && isValidSection(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }
