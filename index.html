@@ -4,36 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>To-Do App</title>
-    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <section class="todo-card">
-        <div class="todo-header">
-          <div>
-            <p class="eyebrow">Productivity</p>
-            <h1>To-Do App</h1>
-          </div>
-          <span class="task-badge" id="taskCount">0 tasks</span>
-        </div>
-
-        <form id="todoForm" class="todo-form">
-          <label class="sr-only" for="taskInput">Add a new task</label>
-          <input
-            id="taskInput"
-            name="task"
-            type="text"
-            placeholder="What do you need to do?"
-            autocomplete="off"
-            required
-          />
-          <button type="submit">Add Task</button>
-        </form>
-
-        <ul id="taskList" class="task-list"></ul>
-      </section>
-    </main>
-
-    <script type="module" src="/script.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
